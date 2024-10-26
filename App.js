@@ -1,20 +1,27 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+// App.js
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import HomeScreen from './screens/HomeScreen'; // Pantalla principal
+import LoginScreen from './screens/LoginScreen'; // Pantalla de login
+import AgeSelectionScreen from './screens/AgeSelectionScreen'; // Pantalla de selección de edad
+import MainGameScreen from './screens/MainGameScreen'; // Pantalla principal de juegos
+import ShapeSortingGame from './screens/ShapeSortingGame'; // Importa el nuevo juego
 
-export default function App() {
-  return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
-  );
-}
+const Stack = createStackNavigator();
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+const App = () => {
+    return (
+        <NavigationContainer>
+            <Stack.Navigator initialRouteName="HomeScreen">
+                <Stack.Screen name="HomeScreen" component={HomeScreen} />
+                <Stack.Screen name="LoginScreen" component={LoginScreen} />
+                <Stack.Screen name="AgeSelection" component={AgeSelectionScreen} />
+                <Stack.Screen name="MainGameScreen" component={MainGameScreen} />
+                <Stack.Screen name="ShapeSortingGame" component={ShapeSortingGame} />
+            </Stack.Navigator>
+        </NavigationContainer>
+    );
+};
+
+export default App;
