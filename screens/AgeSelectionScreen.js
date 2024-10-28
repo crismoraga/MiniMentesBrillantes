@@ -1,7 +1,6 @@
-// screens/AgeSelectionScreen.js
-
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, AsyncStorage } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AgeSelectionScreen = ({ navigation }) => {
   useEffect(() => {

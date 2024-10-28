@@ -1,153 +1,133 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, Animated, Image } from 'react-native';
-import { Audio } from 'expo-av';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
 
-// Define las formas disponibles en el juego
 const shapes = [
-  { id: 'circle', label: 'Círculo', color: '#FF5733' },
-  { id: 'square', label: 'Cuadrado', color: '#33FF57' },
-  { id: 'rectangle', label: 'Rectángulo', color: '#3357FF' },
-  { id: 'triangle', label: 'Triángulo', color: '#FF33A1' },
-  { id: 'star', label: 'Estrella', color: '#FFD700' },
-  { id: 'hexagon', label: 'Hexágono', color: '#8A2BE2' },
+  { id: 'circle', label: 'Círculo', sides: 1, color: '#FF5733', image: require('../assets/circle.png') },
+  { id: 'square', label: 'Cuadrado', sides: 4, color: '#33FF57', image: require('../assets/square.png') },
+  { id: 'triangle', label: 'Triángulo', sides: 3, color: '#FF33A1', image: require('../assets/triangle.png') },
+  { id: 'star', label: 'Estrella', sides: 5, color: '#FFD700', image: require('../assets/star.png') },
+  { id: 'hexagon', label: 'Hexágono', sides: 6, color: '#8A2BE2', image: require('../assets/hexagon.png') },
 ];
 
-const ShapeSortingGame = ({ navigation, route }) => {
-  const { age } = route.params;
+const shuffleArray = (array) => {
+  let shuffledArray = array.slice();
+  for (let i = shuffledArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledArray[i], shuffledArray[j]] = [shuffledArray[j], shuffledArray[i]];
+  }
+  return shuffledArray;
+};
+
+const ShapeSortingGame = ({ navigation }) => {
+  const [tutorialStep, setTutorialStep] = useState(0);
   const [score, setScore] = useState(0);
-  const [level, setLevel] = useState(1);
-  const [shuffledShapes, setShuffledShapes] = useState([]);
-  const [tutorialVisible, setTutorialVisible] = useState(true);
-  const [maxShapes, setMaxShapes] = useState(age === '4-5' ? 3 : 5);
-  const [timer, setTimer] = useState(30);
-  const [isGameOver, setIsGameOver] = useState(false);
-  const [soundCorrect, setSoundCorrect] = useState(null);
-  const [soundIncorrect, setSoundIncorrect] = useState(null);
+  const [isGamePhase, setIsGamePhase] = useState(false);
+  const [isIdentificationPhase, setIsIdentificationPhase] = useState(false);
+  const [randomShape, setRandomShape] = useState(shapes[0]);
+  const [identifiedShapes, setIdentifiedShapes] = useState([]);
+  const [remainingShapes, setRemainingShapes] = useState(shuffleArray(shapes));
 
-  useEffect(() => {
-    shuffleShapes();
-    loadSounds();
-    startTimer();
-    return () => {
-      if (soundCorrect) {
-        soundCorrect.unloadAsync();
-      }
-      if (soundIncorrect) {
-        soundIncorrect.unloadAsync();
-      }
-    };
-  }, []);
-
-  const loadSounds = async () => {
-    const { sound: correctSound } = await Audio.Sound.createAsync(require('../assets/correct.mp3'));
-    const { sound: incorrectSound } = await Audio.Sound.createAsync(require('../assets/incorrect.mp3'));
-    setSoundCorrect(correctSound);
-    setSoundIncorrect(incorrectSound);
-  };
-
-  const startTimer = () => {
-    const interval = setInterval(() => {
-      setTimer((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          handleFinish();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const shuffleShapes = () => {
-    const shuffled = [...shapes].sort(() => Math.random() - 0.5).slice(0, maxShapes);
-    setShuffledShapes(shuffled);
-  };
-
-  const handleDrop = async (shapeId) => {
-    const isCorrect = shapeId === shuffledShapes[0].id; // Se coloca la figura correcta primero
-    if (isCorrect) {
-      setScore((prevScore) => prevScore + 10); // Incrementa la puntuación
-      await soundCorrect.playAsync();
-      Alert.alert('¡Bien hecho!', `Has colocado el ${shapes.find(s => s.id === shapeId).label} correctamente.`);
-      if (score >= 50) {
-        setLevel(level + 1);
-        setMaxShapes(maxShapes + 1); // Incrementa la dificultad
-        Alert.alert('¡Nivel Siguiente!', `Pasaste al nivel ${level + 1}!`);
-      }
-      shuffleShapes();
+  const showNextTutorialShape = () => {
+    if (tutorialStep < remainingShapes.length - 1) {
+      setTutorialStep(tutorialStep + 1);
+      setRandomShape(remainingShapes[tutorialStep + 1]);
     } else {
-      await soundIncorrect.playAsync();
-      Alert.alert('Incorrecto', 'Intenta de nuevo.');
+      setIsGamePhase(true);
+      setRemainingShapes(shuffleArray(shapes));
+      setRandomShape(remainingShapes[0]);
     }
   };
 
-  const handleFinish = () => {
-    setIsGameOver(true);
-    Alert.alert('Juego Terminado', `Tu puntaje: ${score}`);
-    navigation.navigate('MainGameScreen');
+  const handleAnswer = (shapeId) => {
+    if (shapeId === randomShape.id) {
+      setScore(score + 10);
+      setIdentifiedShapes([...identifiedShapes, shapeId]);
+      Alert.alert('¡Correcto!', `Has identificado el ${randomShape.label} correctamente.`);
+
+      const newRemainingShapes = remainingShapes.filter(shape => shape.id !== shapeId);
+      setRemainingShapes(newRemainingShapes);
+
+      if (newRemainingShapes.length === 0) {
+        Alert.alert('¡Felicidades!', 'Has identificado todas las figuras correctamente. Ahora elige la figura solicitada.');
+        setIsGamePhase(false);
+        setIsIdentificationPhase(true);
+        setRemainingShapes(shuffleArray(shapes));
+        setRandomShape(remainingShapes[0]);
+      } else {
+        setRandomShape(newRemainingShapes[Math.floor(Math.random() * newRemainingShapes.length)]);
+      }
+    } else {
+      Alert.alert('Inténtalo de nuevo', 'Esa no es la figura correcta.');
+    }
   };
 
-  const handleCloseTutorial = () => {
-    setTutorialVisible(false);
+  const handleIdentificationAnswer = (shapeId) => {
+    if (shapeId === randomShape.id) {
+      setScore(score + 20);
+      setIdentifiedShapes([...identifiedShapes, shapeId]);
+
+      const newRemainingShapes = remainingShapes.filter(shape => shape.id !== shapeId);
+      setRemainingShapes(newRemainingShapes);
+
+      if (newRemainingShapes.length === 0) {
+        Alert.alert('¡Felicidades!', 'Has completado todas las fases del juego. ¡Gran trabajo!');
+        navigation.navigate('MainGameScreen'); // Regresa a la pantalla de selección de juego
+      } else {
+        Alert.alert('¡Correcto!', `Has elegido la figura correcta: ${randomShape.label}.`);
+        setRandomShape(newRemainingShapes[Math.floor(Math.random() * newRemainingShapes.length)]);
+      }
+    } else {
+      Alert.alert('Inténtalo de nuevo', 'Esa no es la figura correcta.');
+    }
   };
 
-  return (
+  const renderTutorial = () => (
     <View style={styles.container}>
-      <Text style={styles.title}>Clasifica las Figuras Geométricas</Text>
-      <Text style={styles.score}>Puntuación: {score}</Text>
-      <Text style={styles.level}>Nivel: {level}</Text>
-      <Text style={styles.timer}>Tiempo Restante: {timer}s</Text>
-      <View style={styles.shapeContainer}>
-        {shuffledShapes.map((shape) => (
-          <TouchableOpacity
-            key={shape.id}
-            style={[styles.shape, { backgroundColor: shape.color }]}
-            onPress={() => handleDrop(shape.id)}
-          >
-            <Text style={styles.shapeText}>{shape.label}</Text>
+      <Text style={styles.titleText}>Aprendamos las Figuras</Text>
+      <Image source={randomShape.image} style={styles.shapeImage} />
+      <Text style={styles.subtitleText}>{randomShape.label}</Text>
+      <Text style={styles.shapeDescription}>Lados: {randomShape.sides}</Text>
+      <TouchableOpacity style={styles.nextButton} onPress={showNextTutorialShape}>
+        <Text style={styles.buttonText}>Siguiente</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderGame = () => (
+    <View style={styles.container}>
+      <Text style={styles.titleText}>¿Qué figura estás viendo?</Text>
+      <Image source={randomShape.image} style={styles.shapeImage} />
+      <View style={styles.optionsContainer}>
+        {shapes.map((shape) => (
+          <TouchableOpacity key={shape.id} style={[styles.optionButton, { backgroundColor: shape.color }]} onPress={() => handleAnswer(shape.id)}>
+            <Text style={styles.optionText}>{shape.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
-      <TouchableOpacity style={styles.finishButton} onPress={handleFinish}>
-        <Text style={styles.buttonText}>Terminar Juego</Text>
-      </TouchableOpacity>
+    </View>
+  );
 
-      {/* Tutorial Modal */}
-      <Modal
-        transparent={true}
-        visible={tutorialVisible}
-        animationType="slide"
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Instrucciones</Text>
-            <Text style={styles.modalText}>
-              Toca las figuras geométricas que aparecen y colócalas en el lugar correcto.
-              Gana 10 puntos por cada figura correcta. ¡Buena suerte!
-            </Text>
-            <TouchableOpacity style={styles.modalButton} onPress={handleCloseTutorial}>
-              <Text style={styles.buttonText}>Comenzar Juego</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+  const renderIdentificationPhase = () => (
+    <View style={styles.container}>
+      <Text style={styles.titleText}>Elige la figura: {randomShape.label}</Text>
+      <View style={styles.optionsContainer}>
+        {shapes.map((shape) => (
+          <TouchableOpacity key={shape.id} onPress={() => handleIdentificationAnswer(shape.id)}>
+            <View style={[styles.shapeContainer, { backgroundColor: shape.color }]}>
+              <Image source={shape.image} style={styles.smallShapeImage} />
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
 
-      {/* Game Over Modal */}
-      <Modal
-        transparent={true}
-        visible={isGameOver}
-        animationType="slide"
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Juego Terminado</Text>
-            <Text style={styles.modalText}>Tu puntaje: {score}</Text>
-            <TouchableOpacity style={styles.modalButton} onPress={() => navigation.navigate('MainGameScreen')}>
-              <Text style={styles.buttonText}>Volver a la Pantalla Principal</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+  return (
+    <View style={styles.container}>
+      {!isGamePhase && !isIdentificationPhase && renderTutorial()}
+      {isGamePhase && !isIdentificationPhase && renderGame()}
+      {isIdentificationPhase && renderIdentificationPhase()}
+      <Text style={styles.score}>Puntuación: {score}</Text>
     </View>
   );
 };
@@ -155,84 +135,78 @@ const ShapeSortingGame = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#AEE1E1',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#AEE1E1',
   },
-  title: {
-    fontSize: 28,
-    marginBottom: 10,
-    color: '#333',
+  titleText: {
+    fontSize: 36,
     fontWeight: 'bold',
-  },
-  score: {
-    fontSize: 20,
     color: '#333',
+    textAlign: 'center',
+    marginBottom: 20,
   },
-  level: {
-    fontSize: 20,
+  subtitleText: {
+    fontSize: 28,
     color: '#333',
-  },
-  timer: {
-    fontSize: 18,
+    textAlign: 'center',
     marginBottom: 10,
-    color: '#FF0000',
   },
-  shapeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginVertical: 20,
+  shapeImage: {
+    width: 150,
+    height: 150,
+    marginBottom: 20,
   },
-  shape: {
+  smallShapeImage: {
     width: 100,
     height: 100,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
   },
-  shapeText: {
-    color: '#fff',
-    fontWeight: 'bold',
+  shapeContainer: {
+    padding: 10,
+    borderRadius: 10,
+    margin: 10,
   },
-  finishButton: {
+  shapeDescription: {
+    fontSize: 18,
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  nextButton: {
     backgroundColor: '#6a5acd',
     padding: 15,
     borderRadius: 10,
-    width: '80%',
-    alignItems: 'center',
+    marginTop: 20,
   },
   buttonText: {
     color: '#fff',
     fontSize: 18,
+    textAlign: 'center',
   },
-  modalContainer: {
-    flex: 1,
+  optionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
-  modalContent: {
-    width: '80%',
-    padding: 20,
-    backgroundColor: '#fff',
+  optionButton: {
+    padding: 15,
     borderRadius: 10,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  modalText: {
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  modalButton: {
-    backgroundColor: '#6a5acd',
-    padding: 10,
-    borderRadius: 5,
+    margin: 5,
+    width: '40%',
     alignItems: 'center',
+  },
+  optionText: {
+    color: '#fff',
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  score: {
+    fontSize: 24,
+    color: '#333',
+    fontWeight: 'bold',
+    position: 'absolute',
+    top: 20,
+    right: 20,
   },
 });
 
